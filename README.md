@@ -6,7 +6,7 @@ The implementation of difftools is based on:
 - the reagents and stock concentrations in use in the RWM lab.
 In case you use a different protocol or different reagents / stock concentrations, difftools is not for you.
 
-############################
+###########################
 
 mkmed
 mkmed returns the composition of your culture medium, provided a day of differentiation and a required volume.
@@ -27,7 +27,7 @@ use Anti-Anti? indicates if Anti-Anti should be included (default is "no").
 
 display basal media recipe if ticked, returns the recipe of the required basal media (optional).
 
-############################
+###########################
 
 diffd
 diffd returns a target differentiation day or date, provided a reference date, a reference day and a target date or day.
