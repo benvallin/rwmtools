@@ -1,0 +1,11 @@
+name: difftools
+title:
+username:
+account: difftools
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8310129
+bundleId: 6845753
+url: https://difftools.shinyapps.io/difftools/
+when: 1676390276.25404
+lastSyncTime: 1676390276.25406
