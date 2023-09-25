@@ -19,7 +19,7 @@ if (length(args) == 1L && args == "--help") {
   make_robot_files -- Create lookup files for Phenix robot runs
   
   SYNOPSIS
-  make_robot_files [--date] [--path]
+  make_robot_files [--date] [--pathin] [--pathout]
   make_robot_files --help
   
   DESCRIPTION
@@ -27,15 +27,19 @@ if (length(args) == 1L && args == "--help") {
   There are 3 lookup files (Protocols, Inventory and Process) per type of plate location (rack / incubator). 
   make_robot_files writes 3 files if only rack or incubator is used, and 6 files if both rack and incubator are used.
   If the --date option is not provided, make_robot_files assumes that the target date is the current date. 
-  If the --path option is not provided, make_robot_files tries to read / write files from / to the \"~/Desktop/Robot protocols\" folder.
+  If the --pathin option is not provided, make_robot_files tries to read files from the \"~/Desktop/Robot protocols/\" folder.
+  If the --pathout option is not provided, make_robot_files tries to write files to the \"//PH2-101/Users/Automation/Desktop/Robot protocols/\" folder.
   
   The following options are available:
   
   --date Robot run date for which the lookup files should be generated. 
          Valid values are in the form YYYY-MM-DD or YYYY.MM.DD.
 
-  --path Absolute / relative path leading to the \"Robot experiments.xlsx\" file. Lookup files are written at the same location.
-         Note that a relative path starting from your HOME folder begins with the string \"~/\".
+  --pathin Absolute / relative path leading to the \"Robot experiments.xlsx\" file. 
+           Note that a relative path starting from your HOME folder begins with the string \"~/\".
+           
+  --pathout Absolute / relative path indicating the folder where to write the lookup files.
+            The path must lead to an existing folder. 
           
   --help Show this screen.
   
@@ -43,8 +47,8 @@ if (length(args) == 1L && args == "--help") {
   make_robot_files --help
   make_robot_files
   make_robot_files --date 2023.01.12
-  make_robot_files --path ~/Downloads
-  make_robot_files --date 2023-01-12 --path ~/Downloads
+  make_robot_files --pathin ~/Desktop
+  make_robot_files --date 2023-01-12 --pathin ~/Desktop --pathout ~/Downloads
   
   INPUT FILE SPECIFICATIONS
   - make_robot_files works on the sheet \"CURRENT\" in the \"Robot experiments.xlsx\" file.
@@ -57,7 +61,7 @@ if (length(args) == 1L && args == "--help") {
     -> HARMONY USERNAME: type \"text\".
     -> HARMONY EXPERIMENT NAME: type \"text\" / values do not contain comma(s).
     -> EXPERIMENT DURATION (MIN): type \"numeric\".
-    -> PLATE NAME: type \"character\" / values have no more than 30 characters.
+    -> PLATE NAME: type \"character\" / values do not contain comma(s) and have no more than 30 characters.
     -> LOCATION: type \"text\" / values are either \"RACK\" or \"INCUBATOR\" (case insensitive).
     -> RACK: type \"numeric\" / values are within a valid range: from 1 to 4 for RACK, 1 or 2 for INCUBATOR.
     -> SLOT: type \"numeric\" / values are within a valid range: from 1 to 14 for RACK, from 1 to 22 for INCUBATOR.
@@ -69,21 +73,28 @@ if (length(args) == 1L && args == "--help") {
 
 # Resolve arguments - case 2: user did not provide options ----------------
 
-# Set path=$HOME/Desktop/Robot protocols/ and date=Sys.date(): 
+# Set default date, pathin and pathout values: 
 if (length(args) == 0L) { 
   no_args <- T
-  if (Sys.info()["sysname"] == "Windows") {
-    path <- paste0(Sys.getenv("USERPROFILE"), "/Desktop/Robot protocols/")
-  } else {
-    path <- paste0(path.expand('~'), "/Desktop/Robot protocols/")
-  }
-  if (!dir.exists(path)) {
-    stop("\n\"~/Desktop/Robot protocols/\" folder does not exist.\nIf \"Robot experiments.xlsx\" is located elsewhere, please provide a --path value.")
-  }
-  if (!file.exists(paste0(path, "Robot experiments.xlsx"))) {
-    stop("\n\"Robot experiments.xlsx\" file not in \"~/Desktop/Robot protocols/\" folder.\nIf located elsewhere, please provide a --path value.\n")
-  }
+  # Set date=Sys.date():
   date <- as.character(Sys.Date())
+  # Set pathin=$HOME/Desktop/Robot protocols/:
+  if (Sys.info()["sysname"] == "Windows") {
+    pathin <- paste0(Sys.getenv("USERPROFILE"), "/Desktop/Robot protocols/")
+  } else {
+    pathin <- paste0(path.expand('~'), "/Desktop/Robot protocols/")
+  }
+  if (!dir.exists(pathin)) {
+    stop("\n\"~/Desktop/Robot protocols/\" folder does not exist.\nIf \"Robot experiments.xlsx\" is located elsewhere, please provide a --pathin value.")
+  }
+  if (!file.exists(paste0(pathin, "Robot experiments.xlsx"))) {
+    stop("\n\"Robot experiments.xlsx\" file not in \"~/Desktop/Robot protocols/\" folder.\nIf located elsewhere, please provide a --pathin value.\n")
+  }
+  # Set pathout=//PH2-101/Users/Automation/Desktop/Robot protocols/:
+  pathout <- "//PH2-101/Users/Automation/Desktop/Robot protocols/"
+  if (!dir.exists(pathout)) {
+    stop("\nCannot write lookup files to disk: \"//PH2-101/Users/Automation/Desktop/Robot protocols/\" folder does not exist.")
+  }
 } else {
   no_args <- F
 }
@@ -94,7 +105,7 @@ if (!no_args) {
   
   # Stop if only 1 option name which is not --help is provided without value:
   if ((length(args) == 1L) && args != "--help") { 
-    if (args %in% c("--date", "--path")) {
+    if (args %in% c("--date", "--pathin", "--pathout")) {
       stop("\n", args, " option must be given a value and cannot be used on its own.\n") 
     } else {
       stop("\n", args, " is not a valid option.\n") 
@@ -107,14 +118,14 @@ if (!no_args) {
   }
   
   # Stop if the number of option name / option value pair(s) is invalid:
-  if (!length(args) %in% c(0L, 1L, 2L, 4L)) { 
+  if (!length(args) %in% c(0L, 1L, 2L, 4L, 6L)) { 
     stop("\nInvalid number of option name / option value pairs.\n")
   }
   
   # Check the validity of option name(s):
   arg.table <- data.frame(arg.nm = args[seq.int(from = 1L, to = (length(args)-1L), by = 2L)],
                           arg.val = args[seq.int(from = 2L, to = length(args), by = 2L)])
-  arg.table$arg.nm.valid <- arg.table$arg.nm %in% c("--date", "--path")
+  arg.table$arg.nm.valid <- arg.table$arg.nm %in% c("--date", "--pathin", "--pathout")
   
   # Stop if one or more option name(s) is/are invalid:
   if (!all(arg.table$arg.nm.valid)) {
@@ -152,32 +163,41 @@ if (!no_args) {
     }
   }
   
-  # => Check --path option value:
-  if (any(arg.table$arg.nm == "--path")) {
-    if (!grepl(x = arg.table[arg.table$arg.nm == "--path", "arg.val"], pattern = "^.*/$")) {
-      arg.table[arg.table$arg.nm == "--path", "arg.val"] <- paste0(arg.table[arg.table$arg.nm == "--path", "arg.val"], "/")
+  # => Check --pathin option value:
+  if (any(arg.table$arg.nm == "--pathin")) {
+    if (!grepl(x = arg.table[arg.table$arg.nm == "--pathin", "arg.val"], pattern = "^.*/$")) {
+      arg.table[arg.table$arg.nm == "--pathin", "arg.val"] <- paste0(arg.table[arg.table$arg.nm == "--pathin", "arg.val"], "/")
     }
-    if (dir.exists(arg.table[arg.table$arg.nm == "--path", "arg.val"])) {
-        if (file.exists(paste0(arg.table[arg.table$arg.nm == "--path", "arg.val"], "Robot experiments.xlsx"))) {
-          arg.table[arg.table$arg.nm == "--path", "arg.val.valid"] <- TRUE
+    if (dir.exists(arg.table[arg.table$arg.nm == "--pathin", "arg.val"])) {
+        if (file.exists(paste0(arg.table[arg.table$arg.nm == "--pathin", "arg.val"], "Robot experiments.xlsx"))) {
+          arg.table[arg.table$arg.nm == "--pathin", "arg.val.valid"] <- TRUE
         } else {
-          arg.table[arg.table$arg.nm == "--path", "arg.val.valid"] <- FALSE
+          arg.table[arg.table$arg.nm == "--pathin", "arg.val.valid"] <- FALSE
         }
     } else {
-      arg.table[arg.table$arg.nm == "--path", "arg.val.valid"] <- FALSE
+      arg.table[arg.table$arg.nm == "--pathin", "arg.val.valid"] <- FALSE
     }
   }
+  
+  # => Check --pathout option value
+  if (any(arg.table$arg.nm == "--pathout")) {
+    if (!grepl(x = arg.table[arg.table$arg.nm == "--pathout", "arg.val"], pattern = "^.*/$")) {
+      arg.table[arg.table$arg.nm == "--pathout", "arg.val"] <- paste0(arg.table[arg.table$arg.nm == "--pathout", "arg.val"], "/")
+    }
+    arg.table[arg.table$arg.nm == "--pathout", "arg.val.valid"] <- dir.exists(arg.table[arg.table$arg.nm == "--pathout", "arg.val"])
+  } 
   
   # Stop if one or more option value(s) is/are invalid:
   if (length(arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"]) > 0L) {
     if (length(arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"]) == 1L) {
-      if (arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"] == "--path") {
-        if (!dir.exists(arg.table[arg.table$arg.nm == "--path", "arg.val"])) {
+      if (arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"] == "--pathin") {
+        if (!dir.exists(arg.table[arg.table$arg.nm == "--pathin", "arg.val"])) {
           stop('\nFolder \"', arg.table[arg.table$arg.val.valid == FALSE, "arg.val"], '\" does not exist.\n')
         } else {
-          stop("\n\"Robot experiments.xlsx\" file not in \"", 
-               arg.table[arg.table$arg.val.valid == FALSE, "arg.val"], "\" folder.\n")
+          stop("\n\"Robot experiments.xlsx\" file not in \"", arg.table[arg.table$arg.val.valid == FALSE, "arg.val"], "\" folder.\n")
         }
+      } else if (arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"] == "--pathout") {
+        stop("\nCannot write lookup files to disk: ", arg.table[arg.table$arg.val.valid == FALSE, "arg.val"], " folder does not exist.\n")
       } else {
         stop("\n", arg.table[arg.table$arg.val.valid == FALSE, "arg.val"], " is not a valid value for ", 
              arg.table[arg.table$arg.val.valid == FALSE, "arg.nm"], " option.\n")
@@ -188,34 +208,43 @@ if (!no_args) {
     }
   }
   
-  # Set date and path to user defined value(s) or to default if not provided:
+  # Set date, pathin and pathout to user defined value(s) or to default if not provided:
   if (any(arg.table$arg.nm == "--date")) {
     date <- arg.table[arg.table$arg.nm == "--date", "arg.val"]
   } else {
     date <- as.character(Sys.Date())
   }
   
-  if (any(arg.table$arg.nm == "--path")) {
-    path <- arg.table[arg.table$arg.nm == "--path", "arg.val"]
+  if (any(arg.table$arg.nm == "--pathin")) {
+    pathin <- arg.table[arg.table$arg.nm == "--pathin", "arg.val"]
   } else {
     if (Sys.info()["sysname"] == "Windows") {
-      path <- paste0(Sys.getenv("USERPROFILE"), "/Desktop/Robot protocols/")
+      pathin <- paste0(Sys.getenv("USERPROFILE"), "/Desktop/Robot protocols/")
     } else {
-      path <- paste0(path.expand('~'), "/Desktop/Robot protocols/")
+      pathin <- paste0(path.expand('~'), "/Desktop/Robot protocols/")
     }
-    if (!dir.exists(path)) {
-      stop("\n\"~/Desktop/Robot protocols/\" folder does not exist.\nIf \"Robot experiments.xlsx\" is located elsewhere, please provide a --path value.")
+    if (!dir.exists(pathin)) {
+      stop("\n\"~/Desktop/Robot protocols/\" folder does not exist.\nIf \"Robot experiments.xlsx\" is located elsewhere, please provide a --pathin value.")
     }
-    if (!file.exists(paste0(path, "Robot experiments.xlsx"))) {
-      stop("\n\"Robot experiments.xlsx\" file not in \"~/Desktop/Robot protocols/\" folder.\nIf located elsewhere, please provide a --path value.\n")
+    if (!file.exists(paste0(pathin, "Robot experiments.xlsx"))) {
+      stop("\n\"Robot experiments.xlsx\" file not in \"~/Desktop/Robot protocols/\" folder.\nIf located elsewhere, please provide a --pathin value.\n")
     }
   }
+  
+  if (any(arg.table$arg.nm == "--pathout")) {
+    pathout <- arg.table[arg.table$arg.nm == "--pathout", "arg.val"]
+  } else {
+    pathout <- "//PH2-101/Users/Automation/Desktop/Robot protocols/"
+    if (!dir.exists(pathout)) {
+      stop("\nCannot write lookup files to disk: \"//PH2-101/Users/Automation/Desktop/Robot protocols/\" folder does not exist.")
+    }
+  } 
 }
 
 # Read and parse "Robot experiments.xlsx file" ----------------------------
 
 # Stop if "Robot experiments.xlsx" file does not contain the "CURRENT" sheet:
-current_sheet_missing <- unique(class(try(expr = readxl::read_excel(path = paste0(path, "/Robot experiments.xlsx"),
+current_sheet_missing <- unique(class(try(expr = readxl::read_excel(path = paste0(pathin, "/Robot experiments.xlsx"),
                                                                     sheet = "CURRENT",
                                                                     .name_repair = "unique",
                                                                     n_max = 0L), silent = T)) == "try-error")
@@ -224,7 +253,7 @@ if (current_sheet_missing) {
 }
 
 # Store the column names of "Robot experiments.xlsx" - sheet "CURRENT" in col_names_robot_exps:
-col_names_robot_exps <- colnames(readxl::read_excel(path = paste0(path, "/Robot experiments.xlsx"),
+col_names_robot_exps <- colnames(readxl::read_excel(path = paste0(pathin, "/Robot experiments.xlsx"),
                                                     sheet = "CURRENT",
                                                     .name_repair = "unique",
                                                     n_max = 0L))
@@ -253,7 +282,7 @@ tar_col_types <- c(rep("text", 3), "numeric", rep("text", 2), rep("numeric", 2))
 tar_col_indices_types <- mapply(FUN = list, ... = tar_col_indices, tar_col_types, SIMPLIFY = FALSE)
 
 # Stop if column RUN DATE does not contain the target date:
-run_date_col <- readxl::read_excel(path = paste0(path, "/Robot experiments.xlsx"),
+run_date_col <- readxl::read_excel(path = paste0(pathin, "/Robot experiments.xlsx"),
                                    sheet = "CURRENT",
                                    .name_repair = "unique",
                                    range = readxl::cell_cols(tar_col_indices_types[["RUN DATE"]][[1]]),
@@ -272,7 +301,7 @@ if (sum(run_date_col$`RUN DATE` == date, na.rm = TRUE) == 0) {
 tar_robot_exps <- do.call(cbind, 
                           lapply(X = tar_col_indices_types,
                                  FUN = function(x) {
-                                   readxl::read_excel(path = paste0(path, "/Robot experiments.xlsx"),
+                                   readxl::read_excel(path = paste0(pathin, "/Robot experiments.xlsx"),
                                                       sheet = "CURRENT",
                                                       .name_repair = "unique",
                                                       range = readxl::cell_limits(ul = c(1, x[[1]]), 
@@ -305,6 +334,14 @@ if (any(grepl(x = tar_robot_exps$`HARMONY EXPERIMENT NAME`, pattern = ","))) {
   stop("\nColumn HARMONY EXPERIMENT NAME contains value(s) with comma(s).\n",
        "Problematic experiment name(s):\n",
        paste0(tar_robot_exps[grepl(x = tar_robot_exps$`HARMONY EXPERIMENT NAME`, pattern = ","), "HARMONY EXPERIMENT NAME"],
+              collapse = "\n"), ".\n")
+}
+
+# Stop if column PLATE NAME contains values with comma(s):
+if (any(grepl(x = tar_robot_exps$`PLATE NAME`, pattern = ","))) {
+  stop("\nColumn PLATE NAME contains value(s) with comma(s).\n",
+       "Problematic plate name(s):\n",
+       paste0(tar_robot_exps[grepl(x = tar_robot_exps$`PLATE NAME`, pattern = ","), "PLATE NAME"],
               collapse = "\n"), ".\n")
 }
 
@@ -409,7 +446,7 @@ mk_protocol_file <- function(data, file_name) {
   
   data <- data[, c("Barcode", "ExperimentOwner", "ExperimentName", "Duration")]
   
-  write.csv(x = data, file = paste0(path, file_name), row.names = F)
+  write.csv(x = data, file = paste0(pathout, file_name), row.names = F)
 
 }
 
@@ -426,7 +463,7 @@ mk_inventory_file <- function(data, file_name) {
                      Col8 = data$RACK,
                      Col9 = data$SLOT)
   
-  write.table(x = data, file = paste0(path, file_name),
+  write.table(x = data, file = paste0(pathout, file_name),
               row.names = F, col.names = F, sep = ",", na = "", quote = F)
   
 }
@@ -436,7 +473,7 @@ mk_process_file <- function(data, file_name) {
   
   data <- data.frame(col1 = data$`PLATE NAME`)
   
-  write.table(x = data, file = paste0(path, file_name),
+  write.table(x = data, file = paste0(pathout, file_name),
               row.names = F, col.names = F, sep = "\t", na = "", quote = F)
   
 }
@@ -446,7 +483,7 @@ if (make_rack_files == T) {
   mk_protocol_file(data = rack_tar_robot_exps, file_name = "Protocols_Rack.csv")
   mk_inventory_file(data = rack_tar_robot_exps, file_name = "Inventory_HCS_Rack.csv")
   mk_process_file(data = rack_tar_robot_exps, file_name = "Process_HCS_Rack.txt")
-  message(paste0("\n---> Lookup files for RACK location saved in \"", path, "\" folder."))
+  message(paste0("\n---> Lookup files for RACK location saved in \"", pathout, "\" folder."))
 }
 
 # Write lookup files for INCUBATOR location:
@@ -454,7 +491,7 @@ if (make_incubator_files == T) {
   mk_protocol_file(data = incubator_tar_robot_exps, file_name = "Protocols_Incubator.csv")
   mk_inventory_file(data = incubator_tar_robot_exps, file_name = "Inventory_HCS_Incubator.csv")
   mk_process_file(data = incubator_tar_robot_exps, file_name = "Process_HCS_Incubator.txt")
-  message(paste0("\n---> Lookup files for INCUBATOR location saved in \"", path, "\" folder."))
+  message(paste0("\n---> Lookup files for INCUBATOR location saved in \"", pathout, "\" folder."))
 }
 
 # Print closing message:
