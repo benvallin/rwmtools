@@ -1,4 +1,5 @@
 About difftools
+
 difftools aims to help with the differentiation of iPSCs into dopaminergic neurons (DaNs).
 It is composed of two programs, mkmed and diffd, which compute medium composition and date / day of differentiation.
 The implementation of difftools is based on:
@@ -9,6 +10,7 @@ In case you use a different protocol or different reagents / stock concentration
 ###########################
 
 mkmed
+
 mkmed returns the composition of your culture medium, provided a day of differentiation and a required volume.
 If split and/or Anti-Anti are set to "yes", the medium composition also includes ROCKi and Anti-Anti.
 If requested, mkmed also returns the recipe of the basal media required to prepare the medium.
@@ -30,6 +32,7 @@ display basal media recipe if ticked, returns the recipe of the required basal m
 ###########################
 
 diffd
+
 diffd returns a target differentiation day or date, provided a reference date, a reference day and a target date or day.
 If requested, a differentiation calendar is generated.
 
